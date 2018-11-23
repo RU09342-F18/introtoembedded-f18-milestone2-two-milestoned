@@ -97,7 +97,7 @@ void TimerSetup(void)
     TA0CCR0 = 255;                              // PWM Period
 
     TA0CCR1 = 0;                                // TA0 duty cycle is 0%
-    TA0CCTL1 = OUTMOD_2;                        // Toggle/Reset
+    TA0CCTL1 = OUTMOD_7;                        // Reset/Set
 }
 
 
@@ -108,7 +108,7 @@ void UARTSetup(void)
     UCA1CTL1 |= UCSSEL_1;                       // Sets USCI Clock Source to SMCLK
     UCA1BR0 = 3;                                // Setting the Baud Rate to be 9600
     UCA1BR1 = 0;                                // ^
-    UCA1MCTL |= UCBRS_0 + UCBRF_3;
+    UCA1MCTL |= UCBRS_0 | UCBRF_3;
     UCA1CTL1 &= ~UCSWRST;                       // Initialize USCI State Machine
     UCA1IE |= UCRXIE;                           // Enable USCI_A0 RX interrupt
 }
@@ -116,15 +116,14 @@ void UARTSetup(void)
 
 void ADCSetup(void)
 {
-  ADC12CTL0 = ADC12SHT02 + ADC12ON;         // Sampling time, ADC12 on
-      //= ADC12SHT1_15 | ADC12SHT0_15 | ADC12MSC | ADC12ON | ADC12TOVIE | ADC12ENC | ADC12SC;
+  ADC12CTL0 = ADC12SHT1_15 | ADC12SHT0_15 | ADC12MSC | ADC12ON | ADC12TOVIE | ADC12ENC | ADC12SC;
+      // 1024 ADC12CLK cycles, first sample triggered, ADC12 on, conv-time overflow ie, enable conversion, start conversion
   ADC12CTL1 = ADC12SHP;                     // Use sampling timer
-  //ADC12CTL2 = ADC12RES_2;
+  ADC12CTL2 = ADC12RES_2;                   // 12bit ADC12_A Resolution
   ADC12IE = ADC12IE0;                       // Enable interrupt
-  ADC12CTL0 |= ADC12ENC;
   ADC12IFG &= ~ADC12IFG0;                   // Clear interrupt flag
-  P6SEL |= 0x01;                            // P6.0 ADC option select
-  P1DIR |= 0x01;                            // P1.0 output
+  P6SEL |= BIT0;                            // P6.0 ADC peripheral
+  P6DIR &= ~BIT0;                           // P6.0 input
 }
 
 
