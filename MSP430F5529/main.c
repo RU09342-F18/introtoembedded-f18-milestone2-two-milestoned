@@ -74,6 +74,7 @@
  */
 
 #include <msp430.h>
+#include <math.h>
 
 volatile int byte = 0;
 volatile int buffer = 0;
@@ -91,7 +92,7 @@ void outputSetup(void)
 }
 
 
-void TimerSetup(void)
+void PWMSetup(void)
 {
     TA0CTL = TASSEL_2 | MC_1 | TACLR;           // SMCLK set to UP mode, clear TAR
     TA0CCR0 = 255;                              // PWM Period
@@ -131,7 +132,7 @@ void main(void)
 {
     WDTCTL = WDTPW | WDTHOLD;                   // Stop Watchdog Timer
     outputSetup();
-    TimerSetup();
+    PWMSetup();
     UARTSetup();
     ADCSetup();
 
@@ -182,30 +183,30 @@ void __attribute__ ((interrupt(ADC12_VECTOR))) ADC12_ISR (void)
 {
   switch(__even_in_range(ADC12IV,34))
   {
-  case  0: break;                           // Vector  0:  No interrupt
-  case  2: break;                           // Vector  2:  ADC overflow
-  case  4: break;                           // Vector  4:  ADC timing overflow
   case  6:                                  // Vector  6:  ADC12IFG0
-    if (ADC12MEM0 >= 0x7ff)                 // ADC12MEM = A0 > 0.5AVcc?
-      P1OUT |= BIT0;                        // P1.0 = 1
-    else
-      P1OUT &= ~BIT0;                       // P1.0 = 0
-
-    __bic_SR_register_on_exit(LPM0_bits);   // Exit active CPU
-  case  8: break;                           // Vector  8:  ADC12IFG1
-  case 10: break;                           // Vector 10:  ADC12IFG2
-  case 12: break;                           // Vector 12:  ADC12IFG3
-  case 14: break;                           // Vector 14:  ADC12IFG4
-  case 16: break;                           // Vector 16:  ADC12IFG5
-  case 18: break;                           // Vector 18:  ADC12IFG6
-  case 20: break;                           // Vector 20:  ADC12IFG7
-  case 22: break;                           // Vector 22:  ADC12IFG8
-  case 24: break;                           // Vector 24:  ADC12IFG9
-  case 26: break;                           // Vector 26:  ADC12IFG10
-  case 28: break;                           // Vector 28:  ADC12IFG11
-  case 30: break;                           // Vector 30:  ADC12IFG12
-  case 32: break;                           // Vector 32:  ADC12IFG13
-  case 34: break;                           // Vector 34:  ADC12IFG14
+      unsigned int vin = ADC12MEM0;
+      float currTemp = (vin * 3 / 4095) + 1.5; //obtains temperature in celcius based off of VR+ == 1.5 and VR- == -1.5
+              
+      float tempDiff = currTemp - newTemp;
+      
+      while(tempDiff != 0.0);
+      {
+          if (currTemp > newTemp)
+          {
+              if (TA0CCR1 < 255)
+              {
+                  TA0CCR1 += 20; //incriments PWM cycle by constant
+              }
+          }
+          else if (currTemp < newTemp)
+          {
+              if (TA0CCR1 < 255)
+              {
+                  TA0CCR1 -= 20; //decriments PWM cycle by constant
+              }
+          }
+          //need to send back info to UART
+      }
   default: break;
   }
 }
