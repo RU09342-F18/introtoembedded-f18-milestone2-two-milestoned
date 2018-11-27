@@ -147,10 +147,10 @@ void main(void)
 
 
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-    #pragma vector=USCI_A1_VECTOR
-    __interrupt void USCI_A1_ISR(void)
+    #pragma vector=USCI_A0_VECTOR
+    __interrupt void USCI_A0_ISR(void)
 #elif defined(__GNUC__)
-    void __attribute__ ((interrupt(USCI_A1_VECTOR))) USCI_A1_ISR (void)
+    void __attribute__ ((interrupt(USCI_A0_VECTOR))) USCI_A0_ISR (void)
 #else
     #error Compiler not supported!
 #endif
@@ -162,12 +162,18 @@ void main(void)
       case 0:
           break;                                // Vector 0 - no interrupt
       case 2:                                   // Vector 2 - RXIFG
-        while (!(UCA0IFG&UCTXIFG));             // USCI_A0 TX buffer ready?
-        UCA1TXBUF = currTemp;
-        break;
+        while (!(UCA0IFG & UCTXIFG));           // USCI_A0 TX buffer ready?
+            UCA0IFG &= ~UCTXIFG;                // Clear the TX interrupt flag
+            UCA0TXBUF = currTemp;
+            break;
       default:
           break;
       }
+
+    if (UCA0IFG & UCRXIFG) {
+        UCA0IFG &= ~UCRXIFG;                    // Clear the RX interrupt flag
+        newTemp = UCA0TXBUF;                    // Read Data from UART
+    }
 
     P4OUT &= ~BIT7; // Turn off the onboard LED
 }
@@ -183,9 +189,9 @@ void __attribute__ ((interrupt(ADC12_VECTOR))) ADC12_ISR (void)
 {
   switch(__even_in_range(ADC12IV,34))
   {
-  case  6:                                  // Vector  6:  ADC12IFG0
+  case  6:                                      // Vector  6:  ADC12IFG0
       unsigned int vin = ADC12MEM0;
-      float currTemp = (vin * 3 / 4095) + 1.5; //obtains temperature in celcius based off of VR+ == 1.5 and VR- == -1.5
+      float currTemp = (vin * 3 / 4095) + 1.5;  //obtains temperature in celcius based off of VR+ == 1.5 and VR- == -1.5
               
       float tempDiff = currTemp - newTemp;
       
@@ -195,18 +201,17 @@ void __attribute__ ((interrupt(ADC12_VECTOR))) ADC12_ISR (void)
           {
               if (TA0CCR1 < 255)
               {
-                  TA0CCR1 += 5; //increments PWM cycle by constant
+                  TA0CCR1 += 5;                 //increments PWM cycle by constant
               }
           }
           else if (currTemp < newTemp)
           {
               if (TA0CCR1 < 255)
               {
-                  TA0CCR1 -= 5; //decrements PWM cycle by constant
+                  TA0CCR1 -= 5;                 //decrements PWM cycle by constant
               }
           }
-          tempDiff = currTemp - newTemp; //resets tempDiff
-          //need to send back info to UART
+          tempDiff = currTemp - newTemp;        //reassigns tempDiff
       }
   default: break;
   }
