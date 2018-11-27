@@ -67,17 +67,18 @@
 //******************************************************************************
 
 /*
- * Author: Nicholas Klein
+ * Author: Nicholas Klein, Chris Anling
  * Created Date: 11/1/18
- * Last Edit: 11/18/18
+ * Last Edit: 11/26/18
  * Milestone 2
  */
 
 #include <msp430.h>
 #include <math.h>
 
-volatile int byte = 0;
-volatile int buffer = 0;
+float currTemp = 0.0;
+float newTemp = 0.0;
+unsigned int vin = 0;
 
 void outputSetup(void)
 {
@@ -164,7 +165,8 @@ void main(void)
       case 2:                                   // Vector 2 - RXIFG
         while (!(UCA0IFG & UCTXIFG));           // USCI_A0 TX buffer ready?
             UCA0IFG &= ~UCTXIFG;                // Clear the TX interrupt flag
-            UCA0TXBUF = currTemp;
+            //need to convert currTemp to ASCII, what is currTemp as-is?
+            UCA0TXBUF = currTemp;               //Transmit currTemp
             break;
       default:
           break;
@@ -178,6 +180,8 @@ void main(void)
     P4OUT &= ~BIT7; // Turn off the onboard LED
 }
 
+//Chris wanted me to swear in here so... butts & heck
+
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector = ADC12_VECTOR
 __interrupt void ADC12_ISR(void)
@@ -190,7 +194,7 @@ void __attribute__ ((interrupt(ADC12_VECTOR))) ADC12_ISR (void)
   switch(__even_in_range(ADC12IV,34))
   {
   case  6:                                      // Vector  6:  ADC12IFG0
-      unsigned int vin = ADC12MEM0;
+      vin = ADC12MEM0;
       float currTemp = (vin * 3 / 4095) + 1.5;  //obtains temperature in celcius based off of VR+ == 1.5 and VR- == -1.5
               
       float tempDiff = currTemp - newTemp;
