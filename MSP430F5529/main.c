@@ -160,10 +160,10 @@ void main(void)
     switch(__even_in_range(UCA0IV,4))
       {
       case 0:
-          break;                             // Vector 0 - no interrupt
+          break;                                // Vector 0 - no interrupt
       case 2:                                   // Vector 2 - RXIFG
         while (!(UCA0IFG&UCTXIFG));             // USCI_A0 TX buffer ready?
-        UCA1TXBUF = temp;
+        UCA1TXBUF = currTemp;
         break;
       default:
           break;
@@ -195,16 +195,17 @@ void __attribute__ ((interrupt(ADC12_VECTOR))) ADC12_ISR (void)
           {
               if (TA0CCR1 < 255)
               {
-                  TA0CCR1 += 20; //incriments PWM cycle by constant
+                  TA0CCR1 += 5; //increments PWM cycle by constant
               }
           }
           else if (currTemp < newTemp)
           {
               if (TA0CCR1 < 255)
               {
-                  TA0CCR1 -= 20; //decriments PWM cycle by constant
+                  TA0CCR1 -= 5; //decrements PWM cycle by constant
               }
           }
+          tempDiff = currTemp - newTemp; //resets tempDiff
           //need to send back info to UART
       }
   default: break;
