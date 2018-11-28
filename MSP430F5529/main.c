@@ -106,6 +106,7 @@ void PWMSetup(void)
 void UARTSetup(void)
 {
     P4SEL |= BIT4 | BIT5;                       // BIT4 = TXD output || BIT5 = RXD input
+    P3SEL |= BIT4 | BIT5;                       // BIT3 = TXD output || BIT5 = RXD input
     UCA1CTL1 |= UCSWRST;                        // State Machine Reset + Small Clock Initialization
     UCA1CTL1 |= UCSSEL_1;                       // Sets USCI Clock Source to SMCLK
     UCA1BR0 = 3;                                // Setting the Baud Rate to be 9600
@@ -122,6 +123,7 @@ void ADCSetup(void)
       // 1024 ADC12CLK cycles, first sample triggered, ADC12 on, conv-time overflow ie, enable conversion, start conversion
   ADC12CTL1 = ADC12SHP;                     // Use sampling timer
   ADC12CTL2 = ADC12RES_2;                   // 12bit ADC12_A Resolution
+  //ADC12MCTL0 =
   ADC12IE = ADC12IE0;                       // Enable interrupt
   ADC12IFG &= ~ADC12IFG0;                   // Clear interrupt flag
   P6SEL |= BIT0;                            // P6.0 ADC peripheral
@@ -147,14 +149,9 @@ void main(void)
 }
 
 
-#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-    #pragma vector=USCI_A0_VECTOR
-    __interrupt void USCI_A0_ISR(void)
-#elif defined(__GNUC__)
-    void __attribute__ ((interrupt(USCI_A0_VECTOR))) USCI_A0_ISR (void)
-#else
-    #error Compiler not supported!
-#endif
+
+#pragma vector=USCI_A0_VECTOR
+__interrupt void USCI_A0_ISR(void)
 {
     P4OUT |= BIT7; // Turn on the onboard LED
 
@@ -174,28 +171,23 @@ void main(void)
 
     if (UCA0IFG & UCRXIFG) {
         UCA0IFG &= ~UCRXIFG;                    // Clear the RX interrupt flag
-        newTemp = UCA0TXBUF;                    // Read Data from UART
+        newTemp = UCA0RXBUF;                    // Read Data from UART
     }
 
     P4OUT &= ~BIT7; // Turn off the onboard LED
 }
 
-//Chris wanted me to swear in here so... butts & heck
+// Chris wanted me to swear in here so... butts & heck
 
-#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector = ADC12_VECTOR
 __interrupt void ADC12_ISR(void)
-#elif defined(__GNUC__)
-void __attribute__ ((interrupt(ADC12_VECTOR))) ADC12_ISR (void)
-#else
-#error Compiler not supported!
-#endif
 {
   switch(__even_in_range(ADC12IV,34))
   {
   case  6:                                      // Vector  6:  ADC12IFG0
-      vin = ADC12MEM0;
-      float currTemp = (vin * 1.5 / 4095) + 1.5;  //obtains temperature in celcius based off of VR+ == 1.5 and VR- == -1.5
+      Nadc = ADC12MEM0;
+      float currTemp = 27.3 / Nadc;  //obtains temperature in celcius based off of VR+ == 1.5
+          // Nadc = (Vin/VR+)*4095 = (10E-3V/1C/1.5V)*4095
               
       float tempDiff = currTemp - newTemp;
       
@@ -217,6 +209,7 @@ void __attribute__ ((interrupt(ADC12_VECTOR))) ADC12_ISR (void)
           }
           tempDiff = currTemp - newTemp;        //reassigns tempDiff
       }
+      UCA0TXBUF = currTemp;               //Transmit currTemp
   default: break;
   }
 }
