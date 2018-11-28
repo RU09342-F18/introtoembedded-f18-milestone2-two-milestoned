@@ -67,9 +67,9 @@
 //******************************************************************************
 
 /*
- * Author: Nicholas Klein, Chris Anling
+ * Author: Nicholas Klein, Chris Anling, Scott Gordon
  * Created Date: 11/1/18
- * Last Edit: 11/26/18
+ * Last Edit: 11/28/18
  * Milestone 2
  */
 
@@ -78,7 +78,7 @@
 
 float currTemp = 0.0;
 float newTemp = 0.0;
-unsigned int vin = 0;
+float Nadc = 0;
 
 void outputSetup(void)
 {
@@ -150,28 +150,28 @@ void main(void)
 
 
 
-#pragma vector=USCI_A0_VECTOR
-__interrupt void USCI_A0_ISR(void)
+#pragma vector=USCI_A1_VECTOR
+__interrupt void USCI_A1_ISR(void)
 {
     P4OUT |= BIT7; // Turn on the onboard LED
 
-    switch(__even_in_range(UCA0IV,4))
+    switch(__even_in_range(UCA1IV,4))
       {
       case 0:
           break;                                // Vector 0 - no interrupt
       case 2:                                   // Vector 2 - RXIFG
-        while (!(UCA0IFG & UCTXIFG));           // USCI_A0 TX buffer ready?
-            UCA0IFG &= ~UCTXIFG;                // Clear the TX interrupt flag
+        while (!(UCA1IFG & UCTXIFG));           // USCI_A0 TX buffer ready?
+            UCA1IFG &= ~UCTXIFG;                // Clear the TX interrupt flag
             //need to convert currTemp to ASCII, what is currTemp as-is?
-            UCA0TXBUF = currTemp;               //Transmit currTemp
+            UCA1TXBUF = currTemp;               //Transmit currTemp
             break;
       default:
           break;
       }
 
-    if (UCA0IFG & UCRXIFG) {
-        UCA0IFG &= ~UCRXIFG;                    // Clear the RX interrupt flag
-        newTemp = UCA0RXBUF;                    // Read Data from UART
+    if (UCA1IFG & UCRXIFG) {
+        UCA1IFG &= ~UCRXIFG;                    // Clear the RX interrupt flag
+        newTemp = UCA1RXBUF;                    // Read Data from UART
     }
 
     P4OUT &= ~BIT7; // Turn off the onboard LED
@@ -209,7 +209,7 @@ __interrupt void ADC12_ISR(void)
           }
           tempDiff = currTemp - newTemp;        //reassigns tempDiff
       }
-      UCA0TXBUF = currTemp;               //Transmit currTemp
+      UCA1TXBUF = currTemp;                     //Transmit currTemp
   default: break;
   }
 }
