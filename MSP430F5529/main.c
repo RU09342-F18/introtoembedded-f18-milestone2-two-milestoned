@@ -195,7 +195,7 @@ void __attribute__ ((interrupt(ADC12_VECTOR))) ADC12_ISR (void)
   {
   case  6:                                      // Vector  6:  ADC12IFG0
       vin = ADC12MEM0;
-      float currTemp = (vin * 3 / 4095) + 1.5;  //obtains temperature in celcius based off of VR+ == 1.5 and VR- == -1.5
+      float currTemp = (vin * 1.5 / 4095) + 1.5;  //obtains temperature in celcius based off of VR+ == 1.5 and VR- == -1.5
               
       float tempDiff = currTemp - newTemp;
       
