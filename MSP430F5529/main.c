@@ -106,7 +106,7 @@ void PWMSetup(void)
 void UARTSetup(void)
 {
     P4SEL |= BIT4 | BIT5;                       // BIT4 = TXD output || BIT5 = RXD input
-    P3SEL |= BIT4 | BIT5;                       // BIT3 = TXD output || BIT5 = RXD input
+    //P3SEL |= BIT4 | BIT5;                       // BIT3 = TXD output || BIT5 = RXD input
     UCA1CTL1 |= UCSWRST;                        // State Machine Reset + Small Clock Initialization
     UCA1CTL1 |= UCSSEL_1;                       // Sets USCI Clock Source to SMCLK
     UCA1BR0 = 3;                                // Setting the Baud Rate to be 9600
@@ -119,6 +119,7 @@ void UARTSetup(void)
 
 void ADCSetup(void)
 {
+    /*
   ADC12CTL0 = ADC12SHT1_15 | ADC12SHT0_15 | ADC12MSC | ADC12ON | ADC12TOVIE | ADC12ENC | ADC12SC;
       // 1024 ADC12CLK cycles, first sample triggered, ADC12 on, conv-time overflow ie, enable conversion, start conversion
   ADC12CTL1 = ADC12SHP;                     // Use sampling timer
@@ -128,6 +129,14 @@ void ADCSetup(void)
   ADC12IFG &= ~ADC12IFG0;                   // Clear interrupt flag
   P6SEL |= BIT0;                            // P6.0 ADC peripheral
   P6DIR &= ~BIT0;                           // P6.0 input
+  */
+
+  ADC12CTL0 = ADC12SHT02 + ADC12ON;         // Sampling time, ADC12 on
+  ADC12CTL1 = ADC12SHP;                     // Use sampling timer
+  ADC12IE = 0x01;                           // Enable interrupt
+  ADC12CTL0 |= ADC12ENC;
+  P6SEL |= 0x01;                            // P6.0 ADC option select
+  P1DIR |= 0x01;                            // P1.0 output
 }
 
 
@@ -139,11 +148,10 @@ void main(void)
     UARTSetup();
     ADCSetup();
 
+    __bis_SR_register(GIE);     // LPM0, ADC12_ISR will force exit
     while (1)
     {
       ADC12CTL0 |= ADC12SC;                   // Start sampling/conversion
-
-      __bis_SR_register(LPM0_bits + GIE);     // LPM0, ADC12_ISR will force exit
       __no_operation();                       // For debugger
     }
 }
