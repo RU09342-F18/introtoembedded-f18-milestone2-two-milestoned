@@ -76,9 +76,10 @@
 #include <msp430.h>
 #include <math.h>
 
-float currTemp = 0.0;
-float newTemp = 0.0;
-float Nadc = 0;
+float currTemp = 1.0;
+float newTemp = 25.0;
+float tempDiff = 0.0;
+unsigned int Nadc = 0;
 
 void outputSetup(void)
 {
@@ -98,7 +99,8 @@ void PWMSetup(void)
     TA0CTL = TASSEL_2 | MC_1 | TACLR;           // SMCLK set to UP mode, clear TAR
     TA0CCR0 = 255;                              // PWM Period
 
-    TA0CCR1 = 0;                                // TA0 duty cycle is 0%
+    //TA0CCR1 = 25;                               // TA0 duty cycle is ~10%
+    TA0CCR1 = 255;                               // TA0 duty cycle is 100%
     TA0CCTL1 = OUTMOD_7;                        // Reset/Set
 }
 
@@ -136,6 +138,7 @@ void ADCSetup(void)
   ADC12IE = 0x01;                           // Enable interrupt
   ADC12CTL0 |= ADC12ENC;
   P6SEL |= 0x01;                            // P6.0 ADC option select
+  P6DIR &= ~BIT0;                           // P6.0 input
   P1DIR |= 0x01;                            // P1.0 output
 }
 
@@ -169,10 +172,10 @@ __interrupt void USCI_A1_ISR(void)
           break;                                // Vector 0 - no interrupt
       case 2:                                   // Vector 2 - RXIFG
         while (!(UCA1IFG & UCTXIFG));           // USCI_A0 TX buffer ready?
-            UCA1IFG &= ~UCTXIFG;                // Clear the TX interrupt flag
-            //need to convert currTemp to ASCII, what is currTemp as-is?
-            UCA1TXBUF = currTemp;               //Transmit currTemp
-            break;
+        UCA1IFG &= ~UCTXIFG;                    // Clear the TX interrupt flag
+        //need to convert currTemp to ASCII, what is currTemp as-is?
+        UCA1TXBUF = (int)currTemp & 0x0FF;               //Transmit currTemp
+        break;
       default:
           break;
       }
@@ -194,12 +197,12 @@ __interrupt void ADC12_ISR(void)
   {
   case  6:                                      // Vector  6:  ADC12IFG0
       Nadc = ADC12MEM0;
-      float currTemp = 27.3 / Nadc;  //obtains temperature in celcius based off of VR+ == 1.5
-          // Nadc = (Vin/VR+)*4095 = (10E-3V/1C/1.5V)*4095
+      currTemp = -(((Nadc/4095.)*1.5) - 0.5) * 100;             //obtains temperature in celcius based off of VR+ == 1.5 -> redone eq by Russel and Nick
+          // Nadc = (Vin/VR+)*4095 = (((10E-3V/1C)-0.5V)/1.5V)*4095, 27.3 / (Nadc - 1365)
               
-      float tempDiff = currTemp - newTemp;
+      tempDiff = currTemp - newTemp;
       
-      while(tempDiff != 0.0);
+      if (tempDiff <= 0.1 && tempDiff >= -0.1)
       {
           if (currTemp > newTemp)
           {
@@ -210,14 +213,15 @@ __interrupt void ADC12_ISR(void)
           }
           else if (currTemp < newTemp)
           {
-              if (TA0CCR1 < 255)
+              if (TA0CCR1 > 50)
               {
                   TA0CCR1 -= 5;                 //decrements PWM cycle by constant
               }
           }
-          tempDiff = currTemp - newTemp;        //reassigns tempDiff
       }
-      UCA1TXBUF = currTemp;                     //Transmit currTemp
+      while (!(UCA0IFG&UCTXIFG));               // USCI_A0 TX buffer ready?
+      UCA1IFG &= ~UCTXIFG;                      // Clear the TX interrupt flag
+      UCA1TXBUF = (int)currTemp & 0x0FF;        //Transmit currTemp
   default: break;
   }
 }
