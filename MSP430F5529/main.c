@@ -173,16 +173,18 @@ __interrupt void USCI_A1_ISR(void)
       case 2:                                   // Vector 2 - RXIFG
         while (!(UCA1IFG & UCTXIFG));           // USCI_A0 TX buffer ready?
         UCA1IFG &= ~UCTXIFG;                    // Clear the TX interrupt flag
+        UCA1IFG &= ~UCRXIFG;                    // Clear the RX interrupt flag
         //need to convert currTemp to ASCII, what is currTemp as-is?
         UCA1TXBUF = (int)currTemp & 0x0FF;               //Transmit currTemp
+        newTemp = UCA1RXBUF;                    // Read Data from UART
+        __delay_cycles(1000);
         break;
       default:
           break;
       }
 
     if (UCA1IFG & UCRXIFG) {
-        UCA1IFG &= ~UCRXIFG;                    // Clear the RX interrupt flag
-        newTemp = UCA1RXBUF;                    // Read Data from UART
+
     }
 
     P4OUT &= ~BIT7; // Turn off the onboard LED
@@ -222,6 +224,7 @@ __interrupt void ADC12_ISR(void)
       while (!(UCA0IFG&UCTXIFG));               // USCI_A0 TX buffer ready?
       UCA1IFG &= ~UCTXIFG;                      // Clear the TX interrupt flag
       UCA1TXBUF = (int)currTemp & 0x0FF;        //Transmit currTemp
+      __delay_cycles(1000);
   default: break;
   }
 }
