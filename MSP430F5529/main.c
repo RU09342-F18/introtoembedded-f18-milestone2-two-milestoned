@@ -133,13 +133,17 @@ void ADCSetup(void)
   P6DIR &= ~BIT0;                               // P6.0 input
   */
 
-  ADC12CTL0 = ADC12SHT02 + ADC12ON;             // Sampling time, ADC12 on
-  ADC12CTL1 = ADC12SHP;                         // Use sampling timer
-  ADC12IE = 0x01;                               // Enable interrupt
-  ADC12CTL0 |= ADC12ENC;
-  P6SEL |= 0x01;                                // P6.0 ADC option select
-  P6DIR &= ~BIT0;                               // P6.0 input
-  P1DIR |= 0x01;                                // P1.0 output
+    //timer for adc capture
+    TA1CTL = TASSEL_2 | MC_1 | TACLR | TAIE;    // SMCLK set to UP mode, clear TAR, enable interrupt
+    TA1CCR0 = 32;                               // PWM Period, 1ms
+
+    ADC12CTL0 = ADC12SHT02 + ADC12ON;           // Sampling time, ADC12 on
+    ADC12CTL1 = ADC12SHP;                       // Use sampling timer
+    ADC12IE = 0x01;                             // Enable interrupt
+    ADC12CTL0 |= ADC12ENC;
+    P6SEL |= 0x01;                              // P6.0 ADC option select
+    P6DIR &= ~BIT0;                             // P6.0 input
+    P1DIR |= 0x01;                              // P1.0 output
 }
 
 
@@ -174,7 +178,6 @@ void main(void)
     __bis_SR_register(GIE);                     // LPM0, ADC12_ISR will force exit
     while (1)
     {
-      ADC12CTL0 |= ADC12SC;                     // Start sampling/conversion
       __no_operation();                         // For debugger
     }
 }
@@ -196,30 +199,41 @@ __interrupt void USCI_A1_ISR(void)
         //need to convert currTemp to ASCII, what is currTemp as-is?
         UCA1TXBUF = (int)currTemp & 0x0FF;      //Transmit currTemp
         newTemp = UCA1RXBUF;                    // Read Data from UART
-        __delay_cycles(1000);
 
         break;
       default:
           break;
       }
 
-    if (UCA1IFG & UCRXIFG) {
-
-    }
-
     P4OUT &= ~BIT7;                             // Turn off the onboard LED
 }
 
 // Chris wanted me to swear in here so... butts & heck
 
+
+#pragma vector=TIMER1_A1_VECTOR
+__interrupt void TIMER1_A1_ISR(void)
+
+{
+    switch(__even_in_range(TA1IV,14))
+      {
+        case 14:                                 // overflow
+            ADC12CTL0 |= ADC12SC;                // Start sampling/conversion
+            TA1CTL &= ~TAIFG;                    // disable interrupt flag
+            break;
+        default: break;
+      }
+}
+
+
 #pragma vector = ADC12_VECTOR
 __interrupt void ADC12_ISR(void)
 {
-  switch(__even_in_range(ADC12IV,34))
-  {
-  case  6:                                      // Vector  6:  ADC12IFG0
+    switch(__even_in_range(ADC12IV,34))
+    {
+    case  6:                                      // Vector  6:  ADC12IFG0
       Nadc = ADC12MEM0;
-      //currTemp = (((Nadc/4095.)*3.3)/0.1) - 5;
+      currTemp = (((Nadc/4095.)*5)/0.0375) - 5;
           //currTemp = (((Nadc/4095.)*1.5) - 0.5) * 100;             //obtains temperature in celcius based off of VR+ == 1.5
           //getting close values to expected but they're negative
           // Nadc = (Vin/VR+)*4095 = (((10E-3V/1C)-0.5V)/1.5V)*4095
@@ -232,7 +246,7 @@ __interrupt void ADC12_ISR(void)
       //avgTemp = readTemp(currTemp);
 
       tempDiff = currTemp - newTemp;
-      
+
       if (tempDiff >= 0.1 || tempDiff <= -0.1)
       {
           if (currTemp > newTemp)
@@ -253,13 +267,13 @@ __interrupt void ADC12_ISR(void)
       while (!(UCA0IFG&UCTXIFG));               // USCI_A0 TX buffer ready?
       UCA1IFG &= ~UCTXIFG;                      // Clear the TX interrupt flag
       UCA1TXBUF = (int)currTemp & 0x0FF;        //Transmit currTemp
-      __delay_cycles(1000);
-  default: break;
-  }
-  if (testCounter >= 1056) { //for testing
+      break;
+    default: break;
+    }
+    if (testCounter >= 1056) { //for testing
       testCounter = 0;
-  }
-  else {
+    }
+    else {
       testCounter++;
-  } //end test section
-}
+    } //end test section
+    }
