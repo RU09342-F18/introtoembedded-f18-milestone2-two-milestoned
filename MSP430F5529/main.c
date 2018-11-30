@@ -77,7 +77,8 @@
 #include <math.h>
 
 float currTemp = 1.0;
-float newTemp = 25.0;
+int newTemp = 25;
+int avgTemp = 1;
 float tempDiff = 0.0;
 unsigned int Nadc = 0;
 int tempCounter = 0;
@@ -93,10 +94,9 @@ void PWMSetup(void)
     P1OUT &= ~BIT2;                             // Turn off
 
     TA0CTL = TASSEL_2 | MC_1 | TACLR;           // SMCLK set to UP mode, clear TAR
-    TA0CCR0 = 255;                              // PWM Period
+    TA0CCR0 = 1000;                             // PWM Period
 
-    //TA0CCR1 = 25;                             // TA0 duty cycle is ~10%
-    TA0CCR1 = 255;                              // TA0 duty cycle is 100%
+    TA0CCR1 = 500;                              // TA0 duty cycle is 50%
     TA0CCTL1 = OUTMOD_7;                        // Reset/Set
 }
 
@@ -142,21 +142,26 @@ void ADCSetup(void)
   P1DIR |= 0x01;                                // P1.0 output
 }
 
-/*
-void readTemp(void)
+
+int readTemp(float Vin)
 {
+    int Vout;
     if (tempCounter == 0) {
-        temps[tempCounter] = currTemp;
+        temps[tempCounter] = Vin;
         tempCounter++;
     }
-    else if (tempCounter >= 7) {
+    else if (tempCounter < 7) {
         temps[tempCounter] = temps[tempCounter - 1];
         tempCounter++;
     }
     else {
+        temps[tempCounter] = temps[tempCounter - 1];
         tempCounter = 0;
     }
-}*/
+    Vout = (temps[0] + temps[1] + temps[2] + temps[3] + temps[4] + temps[5] + temps[6] + temps[7])/8;
+
+    return Vout;
+}
 
 
 void main(void)
@@ -214,7 +219,8 @@ __interrupt void ADC12_ISR(void)
   {
   case  6:                                      // Vector  6:  ADC12IFG0
       Nadc = ADC12MEM0;
-      currTemp = -(((Nadc/4095.)*1.5) - 0.5) * 100;             //obtains temperature in celcius based off of VR+ == 1.5
+      //currTemp = (((Nadc/4095.)*3.3)/0.1) - 5;
+          //currTemp = (((Nadc/4095.)*1.5) - 0.5) * 100;             //obtains temperature in celcius based off of VR+ == 1.5
           //getting close values to expected but they're negative
           // Nadc = (Vin/VR+)*4095 = (((10E-3V/1C)-0.5V)/1.5V)*4095
           // old eq: 27.3 / (Nadc - 1365)
@@ -223,31 +229,34 @@ __interrupt void ADC12_ISR(void)
 
       //readtemp();                       //for debug -- causes error, abandoned
 
+      //avgTemp = readTemp(currTemp);
+
       tempDiff = currTemp - newTemp;
       
       if (tempDiff >= 0.1 || tempDiff <= -0.1)
       {
           if (currTemp > newTemp)
           {
-              if (TA0CCR1 < 255)
+              if (TA0CCR1 < 1000)
               {
-                  TA0CCR1 += 5;                 //increments PWM cycle by constant
+                  TA0CCR1 ++;                 //increments PWM cycle
               }
           }
           else if (currTemp < newTemp)
           {
               if (TA0CCR1 > 50)
               {
-                  TA0CCR1 -= 5;                 //decrements PWM cycle by constant
+                  TA0CCR1 --;                 //decrements PWM cycle
               }
           }
       }
       while (!(UCA0IFG&UCTXIFG));               // USCI_A0 TX buffer ready?
       UCA1IFG &= ~UCTXIFG;                      // Clear the TX interrupt flag
       UCA1TXBUF = (int)currTemp & 0x0FF;        //Transmit currTemp
+      __delay_cycles(1000);
   default: break;
   }
-  if (testCounter >= 1024) { //for testing
+  if (testCounter >= 1056) { //for testing
       testCounter = 0;
   }
   else {
