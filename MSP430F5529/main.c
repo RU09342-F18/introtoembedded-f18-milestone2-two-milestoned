@@ -69,212 +69,144 @@
 /*
  * Author: Nicholas Klein, Chris Anling, Scott Gordon
  * Created Date: 11/1/18
- * Last Edit: 11/28/18
+ * Last Edit: 11/30/18
  * Milestone 2
  */
 
 #include <msp430.h>
 #include <math.h>
 
-float currTemp = 1.0;
-int newTemp = 25;
-int avgTemp = 1;
-float tempDiff = 0.0;
-unsigned int Nadc = 0;
-int tempCounter = 0;
-int testCounter = 0;
-unsigned int temps[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+// declare variables
+float currTemp = 1.0;                                           // Defines current temperature interpreted by ADC
+int newTemp = 25;                                               // Defines desired temperature given by UART
+float tempDiff = 0.0;                                           // Difference between current temperature and desired temperature
+unsigned int Nadc = 0;                                          // interpreted input from ADC12MEM0 register of ADC
 
 
-void PWMSetup(void)
-{
-    //output for PWM
-    P1DIR |= BIT2;                              // Sets pin 1.2 to the output direction
-    P1SEL |= BIT2;                              // BIT2 = TA0.1 output
-    P1OUT &= ~BIT2;                             // Turn off
+void PWMSetup(void) {
+    // Output for PWM
+    P1DIR |= BIT2;                                              // Sets pin 1.2 to the output direction
+    P1SEL |= BIT2;                                              // BIT2 = TA0.1 output
+    P1OUT &= ~BIT2;                                             // Sets pin 1.2 to "off" state
 
-    TA0CTL = TASSEL_2 | MC_1 | TACLR;           // SMCLK set to UP mode, clear TAR
-    TA0CCR0 = 1000;                             // PWM Period
-
-    TA0CCR1 = 500;                              // TA0 duty cycle is 50%
-    TA0CCTL1 = OUTMOD_7;                        // Reset/Set
+    // Clock for PWM
+    TA0CTL = TASSEL_2 | MC_1 | TACLR;                           // SMCLK (32kHz) set to UP mode, clear TAR
+    TA0CCR0 = 1000;                                             // PWM Period = 1000 clock cycles
+    TA0CCR1 = 500;                                              // TA0 duty cycle is 50%
+    TA0CCTL1 = OUTMOD_7;                                        // Reset/Set mode
 }
 
 
-void UARTSetup(void)
-{
-    P4SEL |= BIT4 | BIT5;                       // BIT4 = TXD output || BIT5 = RXD input
-    UCA1CTL1 |= UCSWRST;                        // State Machine Reset + Small Clock Initialization
-    UCA1CTL1 |= UCSSEL_1;                       // Sets USCI Clock Source to SMCLK
-    UCA1BR0 = 0x03;                             // Setting the Baud Rate to be 9600
-    UCA1BR1 = 0x00;                             // ^
-    //UCA1MCTL |= UCBRS_0 | UCBRF_3;
-    UCA1MCTL = UCBRS_3+UCBRF_0;               // Modulation UCBRSx=3, UCBRFx=0
-    UCA1CTL1 &= ~UCSWRST;                       // Initialize USCI State Machine
-    UCA1IE |= UCRXIE;                           // Enable USCI_A0 RX interrupt
+void UARTSetup(void) {
+    P4SEL |= BIT4 | BIT5;                                       // Pin4.4 set as TXD output,  Pin4.5 set as RXD input
+    UCA1CTL1 |= UCSWRST;                                        // State Machine Reset + Small Clock Initialization
+    UCA1CTL1 |= UCSSEL_1;                                       // Sets USCI Clock Source to SMCLK (32kHz)
+    UCA1BR0 = 0x03;                                             // Setting the Baud Rate to be 9600
+    UCA1BR1 = 0x00;                                             // Setting the Baud Rate to be 9600
+    UCA1MCTL = UCBRS_3+UCBRF_0;                                 // Modulation UCBRSx=3, UCBRFx=0
+    UCA1CTL1 &= ~UCSWRST;                                       // Initialize USCI State Machine
+    UCA1IE |= UCRXIE;                                           // Enable USCI_A0 RX interrupt
 
-    //Led for UART
-    P4DIR |= BIT7;                              // Sets pin 4.7 to the output direction
-    P4OUT &= ~BIT7;                             // Turn off
+    // Led for UART - Lights up when UART is in use
+    P4DIR |= BIT7;                                              // Sets pin 4.7 to the output direction
+    P4OUT &= ~BIT7;                                             // Sets pin 4.7 to "off" state
 }
 
 
-void ADCSetup(void)
-{
-    /*
-  ADC12CTL0 = ADC12SHT1_15 | ADC12SHT0_15 | ADC12MSC | ADC12ON | ADC12TOVIE | ADC12ENC | ADC12SC;
-      // 1024 ADC12CLK cycles, first sample triggered, ADC12 on, conv-time overflow ie, enable conversion, start conversion
-  ADC12CTL1 = ADC12SHP;                         // Use sampling timer
-  ADC12CTL2 = ADC12RES_2;                       // 12bit ADC12_A Resolution
-  //ADC12MCTL0 =
-  ADC12IE = ADC12IE0;                           // Enable interrupt
-  ADC12IFG &= ~ADC12IFG0;                       // Clear interrupt flag
-  P6SEL |= BIT0;                                // P6.0 ADC peripheral
-  P6DIR &= ~BIT0;                               // P6.0 input
-  */
-
+void ADCSetup(void) {
     //timer for adc capture
-    TA1CTL = TASSEL_2 | MC_1 | TACLR | TAIE;    // SMCLK set to UP mode, clear TAR, enable interrupt
-    TA1CCR0 = 32;                               // PWM Period, 1ms
+    TA1CTL = TASSEL_2 | MC_1 | TACLR | TAIE;                    // SMCLK (32kHz) set to UP mode, clear TAR, enable interrupt
+    TA1CCR0 = 32;                                               // PWM Period, 1ms
 
-    ADC12CTL0 = ADC12SHT02 | ADC12REFON | ADC12ON;           // Sampling time, 1.5v ref on, ADC12 on
-    ADC12CTL1 = ADC12SHP;                       // Use sampling timer
-    ADC12IE = 0x01;                             // Enable interrupt
-    ADC12CTL0 |= ADC12ENC;
-    P6SEL |= 0x01;                              // P6.0 ADC option select
-    P6DIR &= ~BIT0;                             // P6.0 input
-    P1DIR |= 0x01;                              // P1.0 output
+    ADC12CTL0 = ADC12SHT02 | ADC12REFON | ADC12ON | ADC12ENC;   // Sample and hold time set to 16 clock cycles, 1.5v reference voltage on, ADC12 on, Enable ADC12 Conversion
+    ADC12CTL1 = ADC12SHP;                                       // Sampling signal sourced from sampling timer
+    ADC12IE = 0x01;                                             // Enable ADC12 interrupt
+
+    // ADC12 Output
+    P6SEL |= 0x01;                                              // P6.0 ADC option select
+    P6DIR &= ~BIT0;                                             // Sets pin 6.0 to the input direction
 }
 
 
-int readTemp(float Vin)
-{
-    int Vout;
-    if (tempCounter == 0) {
-        temps[tempCounter] = Vin;
-        tempCounter++;
-    }
-    else if (tempCounter < 7) {
-        temps[tempCounter] = temps[tempCounter - 1];
-        tempCounter++;
-    }
-    else {
-        temps[tempCounter] = temps[tempCounter - 1];
-        tempCounter = 0;
-    }
-    Vout = (temps[0] + temps[1] + temps[2] + temps[3] + temps[4] + temps[5] + temps[6] + temps[7])/8;
-
-    return Vout;
-}
-
-
-void main(void)
-{
-    WDTCTL = WDTPW | WDTHOLD;                   // Stop Watchdog Timer
+void main(void) {
+    // Run set up functions
+    WDTCTL = WDTPW | WDTHOLD;                                   // Stop Watchdog Timer
     PWMSetup();
     UARTSetup();
     ADCSetup();
 
-    __bis_SR_register(GIE);                     // LPM0, ADC12_ISR will force exit
+    __bis_SR_register(GIE);                                     // Enables Global Interrupt
     while (1)
     {
-      __no_operation();                         // For debugger
+      __no_operation();                                         // For debugger - Informs debugger it will receive no input
     }
 }
 
 
+// UART Interrupt Vector
 #pragma vector=USCI_A1_VECTOR
-__interrupt void USCI_A1_ISR(void)
-{
-    P4OUT |= BIT7; // Turn on the onboard LED
+__interrupt void USCI_A1_ISR(void) {
+    P4OUT |= BIT7;                                              // Turn on the UART onboard LED
 
-    switch(__even_in_range(UCA1IV,4))
-      {
-      case 0:
-          break;                                // Vector 0 - no interrupt
-      case 2:                                   // Vector 2 - RXIFG
-        while (!(UCA1IFG & UCTXIFG));           // USCI_A0 TX buffer ready?
-        UCA1IFG &= ~UCTXIFG;                    // Clear the TX interrupt flag
-        UCA1IFG &= ~UCRXIFG;                    // Clear the RX interrupt flag
-        //need to convert currTemp to ASCII, what is currTemp as-is?
-        UCA1TXBUF = (int)currTemp & 0x0FF;      //Transmit currTemp
-        newTemp = UCA1RXBUF;                    // Read Data from UART
+    switch(__even_in_range(UCA1IV,4)) {                         // Checks which UART interrupt vector has been triggered
+        case 0:                                                 // Vector 0 - no interrupt
+            break;
+        case 2:                                                 // Vector 2 - RXIFG
+            while (!(UCA1IFG & UCTXIFG));                       // Checks if USCI_A0 TX buffer is ready to recieve input
+            UCA1IFG &= ~UCTXIFG;                                // Clear the TX interrupt flag
+            UCA1IFG &= ~UCRXIFG;                                // Clear the RX interrupt flag
+            UCA1TXBUF = (int)currTemp & 0x0FF;                  // Transmit currTemp through UART
+            newTemp = UCA1RXBUF;                                // Read received Data from UART
 
-        break;
-      default:
-          break;
-      }
-
-    P4OUT &= ~BIT7;                             // Turn off the onboard LED
-}
-
-// Chris wanted me to swear in here so... butts & heck
-
-
-#pragma vector=TIMER1_A1_VECTOR
-__interrupt void TIMER1_A1_ISR(void)
-
-{
-    switch(__even_in_range(TA1IV,14))
-      {
-        case 14:                                 // overflow
-            ADC12CTL0 |= ADC12SC;                // Start sampling/conversion
-            TA1CTL &= ~TAIFG;                    // disable interrupt flag
             break;
         default: break;
-      }
+    }
+
+    P4OUT &= ~BIT7;                                             // Turn off the UART onboard LED
 }
 
 
+//Timer_A Interrupt Vector- used to regulate readings from ADC12
+#pragma vector=TIMER1_A1_VECTOR
+__interrupt void TIMER1_A1_ISR(void) {
+    switch(__even_in_range(TA1IV,14)) {                         // Checks which Timer_A interrupt vector has been triggered
+        case 14:                                                // Timer_A overflow vector
+            ADC12CTL0 |= ADC12SC;                               // Start ADC12 sampling/conversion
+            TA1CTL &= ~TAIFG;                                   // disable Timer_A interrupt flag
+            break;
+        default: break;
+    }
+}
+
+
+// ADC12 Interrupt Vector
 #pragma vector = ADC12_VECTOR
-__interrupt void ADC12_ISR(void)
-{
-    switch(__even_in_range(ADC12IV,34))
-    {
-    case  6:                                      // Vector  6:  ADC12IFG0
-      Nadc = ADC12MEM0;
-      currTemp = ((((Nadc/4095.)*2.75) - 0.5) * 100) + 10;
-              //(((Nadc/4095.)*5)/0.0375) - 5;
-          //currTemp = (((Nadc/4095.)*1.5) - 0.5) * 100;             //obtains temperature in celcius based off of VR+ == 1.5
-          //getting close values to expected but they're negative
-          // Nadc = (Vin/VR+)*4095 = (((10E-3V/1C)-0.5V)/1.5V)*4095
-          // old eq: 27.3 / (Nadc - 1365)
-          // old eq2: (((Nadc/4095.)*1.5) - 0.5) * 100,redone eq by Russel and Nick
-          //eq other team used: ((((3.3)/4096)-0.424)*160)
+__interrupt void ADC12_ISR(void) {
+    switch(__even_in_range(ADC12IV,34)) {                       // Checks which ADC12 interrupt vector has been triggered
+    case  6:                                                    // Vector  6:  ADC12IFG0
+        Nadc = ADC12MEM0;                                       // Obtains raw reading from ADC12MEM0 register
+        currTemp = ((((Nadc/4095.)*2.75) - 0.5) * 100) + 10;    // Obtains temperature in celcius based off of ADC12 reading and reference voltage
+                                                                // This equation is edited from the derived calculation to create more accurate values
+                                                                // Derived calculation: ((((Nadc/4095.)*[referenceVoltage]) - 0.5) * 100)
 
-      //readtemp();                       //for debug -- causes error, abandoned
+        tempDiff = currTemp - newTemp;                          // Calculates temperature difference between current temperature and desired temperature
 
-      //avgTemp = readTemp(currTemp);
-
-      tempDiff = currTemp - newTemp;
-
-      if (tempDiff >= 0.1 || tempDiff <= -0.1)
-      {
-          if (currTemp > newTemp)
-          {
-              if (TA0CCR1 < 1000)
-              {
-                  TA0CCR1 ++;                 //increments PWM cycle
+        if (tempDiff >= 0.1 || tempDiff <= -0.1) {              // Determines if temperature difference is within an acceptable range
+            if (currTemp > newTemp) {                           // Cools PTAT sensor if the system detects the current temperature as higher than the desired temperature
+                if (TA0CCR1 < 1000) {                           // Ensures that the PWM cycle is never set above 100%
+                    TA0CCR1 ++;                                 // Increments PWM cycle
+                }
+          }
+          else if (currTemp < newTemp) {                        // Allows 5-volt regulator to heat PTAT sensor if the system detects the current temperature as lower than the desired temperature
+              if (TA0CCR1 > 20) {                               // Ensures that the PWM cycle is never set below 2% - ensuring the fan never shuts off completely
+                  TA0CCR1 --;                                   // Decrements PWM cycle
               }
           }
-          else if (currTemp < newTemp)
-          {
-              if (TA0CCR1 > 20)
-              {
-                  TA0CCR1 --;                 //decrements PWM cycle
-              }
-          }
-      }
-      while (!(UCA0IFG&UCTXIFG));               // USCI_A0 TX buffer ready?
-      UCA1IFG &= ~UCTXIFG;                      // Clear the TX interrupt flag
-      UCA1TXBUF = (int)currTemp & 0x0FF;        //Transmit currTemp
-      break;
+        }
+        while (!(UCA0IFG&UCTXIFG));                             // Checks if USCI_A0 TX buffer is ready to recieve input
+        UCA1IFG &= ~UCTXIFG;                                    // Clear the TX interrupt flag
+        UCA1TXBUF = (int)currTemp & 0x0FF;                      // Transmit currTemp through UART
+        break;
     default: break;
     }
-    if (testCounter >= 1056) { //for testing
-      testCounter = 0;
-    }
-    else {
-      testCounter++;
-    } //end test section
-    }
+}

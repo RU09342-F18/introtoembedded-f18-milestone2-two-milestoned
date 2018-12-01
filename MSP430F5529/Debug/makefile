@@ -10,8 +10,6 @@ GEN_OPTS__FLAG :=
 GEN_CMDS__FLAG := 
 
 ORDERED_OBJS += \
-"./ADC.obj" \
-"./PWM.obj" \
 "./main.obj" \
 "../lnk_msp430f5529.cmd" \
 $(GEN_CMDS__FLAG) \
@@ -157,8 +155,8 @@ Milestone2Project.hex: $(EXE_OUTPUTS)
 # Other Targets
 clean:
 	-$(RM) $(BIN_OUTPUTS__QUOTED)$(EXE_OUTPUTS__QUOTED)
-	-$(RM) "ADC.obj" "PWM.obj" "main.obj" 
-	-$(RM) "ADC.d" "PWM.d" "main.d" 
+	-$(RM) "main.obj" 
+	-$(RM) "main.d" 
 	-@echo 'Finished clean'
 	-@echo ' '
 
