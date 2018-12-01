@@ -137,7 +137,7 @@ void ADCSetup(void)
     TA1CTL = TASSEL_2 | MC_1 | TACLR | TAIE;    // SMCLK set to UP mode, clear TAR, enable interrupt
     TA1CCR0 = 32;                               // PWM Period, 1ms
 
-    ADC12CTL0 = ADC12SHT02 + ADC12ON;           // Sampling time, ADC12 on
+    ADC12CTL0 = ADC12SHT02 | ADC12REFON | ADC12ON;           // Sampling time, 1.5v ref on, ADC12 on
     ADC12CTL1 = ADC12SHP;                       // Use sampling timer
     ADC12IE = 0x01;                             // Enable interrupt
     ADC12CTL0 |= ADC12ENC;
@@ -233,7 +233,8 @@ __interrupt void ADC12_ISR(void)
     {
     case  6:                                      // Vector  6:  ADC12IFG0
       Nadc = ADC12MEM0;
-      currTemp = (((Nadc/4095.)*5)/0.0375) - 5;
+      currTemp = ((((Nadc/4095.)*2.75) - 0.5) * 100) + 10;
+              //(((Nadc/4095.)*5)/0.0375) - 5;
           //currTemp = (((Nadc/4095.)*1.5) - 0.5) * 100;             //obtains temperature in celcius based off of VR+ == 1.5
           //getting close values to expected but they're negative
           // Nadc = (Vin/VR+)*4095 = (((10E-3V/1C)-0.5V)/1.5V)*4095
@@ -258,7 +259,7 @@ __interrupt void ADC12_ISR(void)
           }
           else if (currTemp < newTemp)
           {
-              if (TA0CCR1 > 50)
+              if (TA0CCR1 > 20)
               {
                   TA0CCR1 --;                 //decrements PWM cycle
               }
