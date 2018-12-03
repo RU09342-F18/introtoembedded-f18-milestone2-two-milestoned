@@ -26,16 +26,16 @@ The Temperature sensor's Vin pin is connected to a 5V VCC as the TMP36 sensor us
 <img src="https://github.com/RU09342-F18/introtoembedded-f18-milestone2-two-milestoned/blob/master/Milestone2CircuitV2.JPG" height="500" width="500">
 
 ## Parts List
-• MSP-EXP430F5529LP Microcontroller
-• Solderless Breadboard
-• TMP36 Temperature Sensor
-• LM7809AC 5V Regulator
-• Foxconn AFB0712HHB 435063-001 CPU Fan
-• 2N7000G MOSFET
-• NE5532P Op-Amp
-• RIE 1310 8W power resistor
-• 150Ω Resistor
-• 1MΩ Resistor
-• 850Ω Resistor
-• 15uF Capacitor
-• Zener Diode
+• MSP-EXP430F5529LP Microcontroller  
+• Solderless Breadboard  
+• TMP36 Temperature Sensor  
+• LM7809AC 5V Regulator  
+• Foxconn AFB0712HHB 435063-001 CPU Fan  
+• 2N7000G MOSFET  
+• NE5532P Op-Amp  
+• RIE 1310 8W power resistor  
+• 150Ω Resistor  
+• 1MΩ Resistor  
+• 850Ω Resistor  
+• 15uF Capacitor  
+• Zener Diode  
