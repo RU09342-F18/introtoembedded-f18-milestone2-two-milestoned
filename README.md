@@ -11,4 +11,4 @@ PWM is a power control where current is regulated by only allowing it to flow so
 UART is a serial communication method that transmits and recieves data without any need for a clock. Here, UART communicates with a computer using a serial terminal program where the desired temperature is sent from the terminal and taken in through the RX buffer so it can be used to compare against the current temperature. Simultaneously the TX buffer stores the current temperature which is sent back to the terminal program every milisecond to be displayed for the user.
 
 ## Circuit Design
-<img src="https://github.com/RU09342-F18/introtoembedded-f18-milestone2-two-milestoned/blob/master/Milestone2Circuit.JPG" height="500" width="500">
+<img src="https://github.com/RU09342-F18/introtoembedded-f18-milestone2-two-milestoned/blob/master/Milestone2CircuitV2.JPG" height="500" width="500">
